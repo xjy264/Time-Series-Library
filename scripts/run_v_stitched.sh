@@ -24,12 +24,13 @@ ENC_IN=7
 DEC_IN=7
 C_OUT=7
 
-# Common model hyperparams (reasonable defaults for ETT)
-D_MODEL=512
-N_HEADS=8
+# Common model hyperparams (smoke-test defaults for ETT)
+# (keep small so V1-V10 x ETTh1/ETTm1 can finish quickly on CPU)
+D_MODEL=64
+N_HEADS=4
 E_LAYERS=2
 D_LAYERS=1
-D_FF=2048
+D_FF=128
 MOVING_AVG=25
 TOP_K=5
 NUM_KERNELS=6
@@ -45,7 +46,7 @@ CMD=(
   --task_name long_term_forecast
   --is_training 1
   --use_gpu False
-  --gpu_type mps
+  --gpu_type cpu
   --root_path "$DATA_ROOT/"
   --data_path "$DATA_PATH"
   --model_id "${DATASET_NAME}_${MODEL_NAME}_sl${SEQ_LEN}_pl${PRED_LEN}"
