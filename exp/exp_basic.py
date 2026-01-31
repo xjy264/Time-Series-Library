@@ -6,6 +6,10 @@ from models import Autoformer, Transformer, TimesNet, Nonstationary_Transformer,
     WPMixer, MultiPatchFormer, KANAD, MSGNet, TimeFilter, Sundial, TimeMoE, Chronos, Moirai, TiRex,\
     TimesFM, Chronos2
 
+# Custom models (kept outside upstream models/)
+from my_models import model_1_30
+from my_models import V1, V2, V3, V4, V5, V6, V7, V8, V9, V10
+
 
 class Exp_Basic(object):
     def __init__(self, args):
@@ -49,7 +53,21 @@ class Exp_Basic(object):
             'Moirai': Moirai,
             'TiRex': TiRex,
             'TimesFM': TimesFM,
-            'Chronos2': Chronos2
+            'Chronos2': Chronos2,
+            # Custom hybrid model: Autoformer decomposition + TimesNet(seasonal) + DLinear(trend)
+            'Model_1_30': model_1_30,
+
+            # Custom stitched models V1-V10 (see my_models/)
+            'V1': V1,
+            'V2': V2,
+            'V3': V3,
+            'V4': V4,
+            'V5': V5,
+            'V6': V6,
+            'V7': V7,
+            'V8': V8,
+            'V9': V9,
+            'V10': V10,
         }
         if args.model == 'Mamba':
             print('Please make sure you have successfully installed mamba_ssm')
