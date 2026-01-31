@@ -24,13 +24,12 @@ ENC_IN=7
 DEC_IN=7
 C_OUT=7
 
-# Common model hyperparams (smoke-test defaults for ETT)
-# (keep small so V1-V10 x ETTh1/ETTm1 can finish quickly on CPU)
-D_MODEL=64
-N_HEADS=4
+# Common model hyperparams (GPU defaults for AutoDL)
+D_MODEL=512
+N_HEADS=8
 E_LAYERS=2
 D_LAYERS=1
-D_FF=128
+D_FF=2048
 MOVING_AVG=25
 TOP_K=5
 NUM_KERNELS=6
@@ -45,8 +44,8 @@ CMD=(
   python -u "$ROOT_DIR/run.py"
   --task_name long_term_forecast
   --is_training 1
-  --use_gpu False
-  --gpu_type cpu
+  --use_gpu True
+  --gpu_type cuda
   --root_path "$DATA_ROOT/"
   --data_path "$DATA_PATH"
   --model_id "${DATASET_NAME}_${MODEL_NAME}_sl${SEQ_LEN}_pl${PRED_LEN}"
