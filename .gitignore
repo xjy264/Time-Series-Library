@@ -166,3 +166,10 @@ result_anomaly_detection.txt
 scripts/augmentation/
 run_anylearn.py
 environment.txt
+# Local experiment artifacts
+records/
+dataset/
+checkpoints/
+results/
+test_results/
+*.bundle
