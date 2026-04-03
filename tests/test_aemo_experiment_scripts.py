@@ -18,14 +18,11 @@ class AemoExperimentScriptsTest(unittest.TestCase):
     def test_model_scripts_exist_and_share_common_aemo_settings(self):
         common_expectations = [
             "--root_path ./dataset/aemo_vic1/",
-            "--data_path aemo_vic1_timexer_ms.csv",
             "--data custom",
             "--features MS",
             "--target net_load",
             "--freq h",
             "--seq_len 168",
-            "--enc_in 6",
-            "--dec_in 6",
         ]
 
         for script_name in MODEL_SCRIPTS:
@@ -33,6 +30,19 @@ class AemoExperimentScriptsTest(unittest.TestCase):
             self.assertTrue(script_path.exists(), f"missing {script_path}")
             content = script_path.read_text()
             for expected in common_expectations:
+                self.assertIn(expected, content, f"{script_name} missing {expected}")
+            expected_data_path = (
+                "--data_path aemo_vic1_timexer_weather_ms.csv"
+                if script_name == "TimeXer.sh"
+                else "--data_path aemo_vic1_timexer_ms.csv"
+            )
+            expected_enc_dec = (
+                ["--enc_in 9", "--dec_in 9"]
+                if script_name == "TimeXer.sh"
+                else ["--enc_in 6", "--dec_in 6"]
+            )
+            self.assertIn(expected_data_path, content, f"{script_name} missing {expected_data_path}")
+            for expected in expected_enc_dec:
                 self.assertIn(expected, content, f"{script_name} missing {expected}")
             expected_c_out = "--c_out 6" if script_name == "TimeMixer.sh" else "--c_out 1"
             self.assertIn(expected_c_out, content, f"{script_name} missing {expected_c_out}")

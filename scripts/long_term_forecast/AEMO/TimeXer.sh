@@ -17,7 +17,7 @@ for pred_len in ${pred_lens}; do
     --task_name long_term_forecast \
     --is_training 1 \
     --root_path ./dataset/aemo_vic1/ \
-    --data_path aemo_vic1_timexer_ms.csv \
+    --data_path aemo_vic1_timexer_weather_ms.csv \
     --model_id aemo_timexer_168_${pred_len} \
     --model ${model_name} \
     --data custom \
@@ -29,8 +29,8 @@ for pred_len in ${pred_lens}; do
     --pred_len ${pred_len} \
     --e_layers 1 \
     --factor 3 \
-    --enc_in 6 \
-    --dec_in 6 \
+    --enc_in 9 \
+    --dec_in 9 \
     --c_out 1 \
     --des ${des} \
     --patch_len 24 \
