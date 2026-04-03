@@ -32,7 +32,7 @@ for pred_len in ${pred_lens}; do
     --factor 3 \
     --enc_in 6 \
     --dec_in 6 \
-    --c_out 1 \
+    --c_out 6 \
     --des ${des} \
     --d_model 32 \
     --d_ff 64 \

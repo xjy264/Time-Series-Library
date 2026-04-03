@@ -26,7 +26,6 @@ class AemoExperimentScriptsTest(unittest.TestCase):
             "--seq_len 168",
             "--enc_in 6",
             "--dec_in 6",
-            "--c_out 1",
         ]
 
         for script_name in MODEL_SCRIPTS:
@@ -35,6 +34,8 @@ class AemoExperimentScriptsTest(unittest.TestCase):
             content = script_path.read_text()
             for expected in common_expectations:
                 self.assertIn(expected, content, f"{script_name} missing {expected}")
+            expected_c_out = "--c_out 6" if script_name == "TimeMixer.sh" else "--c_out 1"
+            self.assertIn(expected_c_out, content, f"{script_name} missing {expected_c_out}")
 
     def test_batch_runner_and_summary_tools_exist(self):
         for relative_path in [
