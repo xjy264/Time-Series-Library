@@ -1,4 +1,5 @@
 import os
+import importlib
 import numpy as np
 import pandas as pd
 import glob
@@ -7,16 +8,44 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
-from data_provider.m4 import M4Dataset, M4Meta
 from data_provider.uea import subsample, interpolate_missing, Normalizer
-from sktime.datasets import load_from_tsfile_to_dataframe
 import warnings
 from utils.augmentation import run_augmentation_single
-from datasets import load_dataset
-from huggingface_hub import hf_hub_download
 warnings.filterwarnings('ignore')
 
 HUGGINGFACE_REPO = "thuml/Time-Series-Library"
+
+
+def _load_dataset_from_hf(*args, **kwargs):
+    try:
+        load_dataset = importlib.import_module("datasets").load_dataset
+    except ImportError as exc:
+        raise ImportError("Install `datasets` to load Hugging Face-hosted datasets.") from exc
+    return load_dataset(*args, **kwargs)
+
+
+def _hf_hub_download(*args, **kwargs):
+    try:
+        hf_hub_download = importlib.import_module("huggingface_hub").hf_hub_download
+    except ImportError as exc:
+        raise ImportError("Install `huggingface_hub` to download remote dataset files.") from exc
+    return hf_hub_download(*args, **kwargs)
+
+
+def _load_tsfile_dataframe(*args, **kwargs):
+    try:
+        load_from_tsfile_to_dataframe = importlib.import_module("sktime.datasets").load_from_tsfile_to_dataframe
+    except ImportError as exc:
+        raise ImportError("Install `sktime` to load .ts classification datasets.") from exc
+    return load_from_tsfile_to_dataframe(*args, **kwargs)
+
+
+def _get_m4_classes():
+    try:
+        module = importlib.import_module("data_provider.m4")
+    except ImportError as exc:
+        raise ImportError("Install M4 dataset dependencies to use the M4 loader.") from exc
+    return module.M4Dataset, module.M4Meta
 
 class Dataset_ETT_hour(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
@@ -57,7 +86,7 @@ class Dataset_ETT_hour(Dataset):
         if os.path.exists(local_fp):
             df_raw = pd.read_csv(local_fp)
         else:
-            ds = load_dataset(HUGGINGFACE_REPO, name=cfg_name)
+            ds = _load_dataset_from_hf(HUGGINGFACE_REPO, name=cfg_name)
             df_raw = ds["train"].to_pandas()
             
         border1s = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
@@ -157,7 +186,7 @@ class Dataset_ETT_minute(Dataset):
         if os.path.exists(local_fp):
             df_raw = pd.read_csv(local_fp)
         else:
-            ds = load_dataset(HUGGINGFACE_REPO, name=cfg_name)
+            ds = _load_dataset_from_hf(HUGGINGFACE_REPO, name=cfg_name)
             df_raw = ds["train"].to_pandas()
 
         border1s = [0, 12 * 30 * 24 * 4 - self.seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len]
@@ -258,7 +287,7 @@ class Dataset_Custom(Dataset):
         if os.path.exists(local_fp):
             df_raw = pd.read_csv(local_fp)
         else:
-            ds = load_dataset(HUGGINGFACE_REPO, name=cfg_name)
+            ds = _load_dataset_from_hf(HUGGINGFACE_REPO, name=cfg_name)
             split_name = "train" if "train" in ds else list(ds.keys())[0]
             df_raw = ds[split_name].to_pandas()
 
@@ -349,6 +378,7 @@ class Dataset_M4(Dataset):
         self.pred_len = size[2]
 
         self.seasonal_patterns = seasonal_patterns
+        _, M4Meta = _get_m4_classes()
         self.history_size = M4Meta.history_size[seasonal_patterns]
         self.window_sampling_limit = int(self.history_size * self.pred_len)
         self.flag = flag
@@ -357,6 +387,7 @@ class Dataset_M4(Dataset):
 
     def __read_data__(self):
         # M4Dataset.initialize()
+        M4Dataset, _ = _get_m4_classes()
         if self.flag == 'train':
             dataset = M4Dataset.load(training=True, dataset_file=self.root_path)
         else:
@@ -424,8 +455,8 @@ class PSMSegLoader(Dataset):
             test_df       = pd.read_csv(test_path)
             test_label_df = pd.read_csv(label_path)
         else:
-            ds_data  = load_dataset(HUGGINGFACE_REPO, name="PSM-data")
-            ds_label = load_dataset(HUGGINGFACE_REPO, name="PSM-label")
+            ds_data  = _load_dataset_from_hf(HUGGINGFACE_REPO, name="PSM-data")
+            ds_label = _load_dataset_from_hf(HUGGINGFACE_REPO, name="PSM-label")
             train_df      = ds_data["train"].to_pandas()
             test_df       = ds_data["test"].to_pandas()
             test_label_df = ds_label[next(iter(ds_label))].to_pandas()
@@ -487,9 +518,9 @@ class MSLSegLoader(Dataset):
             test_data  = np.load(test_path)
             test_label = np.load(label_path)
         else:
-            train_path = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="MSL/MSL_train.npy",repo_type="dataset")
-            test_path  = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="MSL/MSL_test.npy",repo_type="dataset")
-            label_path = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="MSL/MSL_test_label.npy",repo_type="dataset")
+            train_path = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="MSL/MSL_train.npy",repo_type="dataset")
+            test_path  = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="MSL/MSL_test.npy",repo_type="dataset")
+            label_path = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="MSL/MSL_test_label.npy",repo_type="dataset")
 
             train_data  = np.load(train_path)
             test_data   = np.load(test_path)
@@ -550,9 +581,9 @@ class SMAPSegLoader(Dataset):
             test_data  = np.load(test_path)
             test_label = np.load(label_path)
         else:
-            train_path = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMAP/SMAP_train.npy",repo_type="dataset")
-            test_path  = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMAP/SMAP_test.npy",repo_type="dataset")
-            label_path = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMAP/SMAP_test_label.npy",repo_type="dataset")
+            train_path = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMAP/SMAP_train.npy",repo_type="dataset")
+            test_path  = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMAP/SMAP_test.npy",repo_type="dataset")
+            label_path = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMAP/SMAP_test_label.npy",repo_type="dataset")
 
             train_data  = np.load(train_path)
             test_data   = np.load(test_path)
@@ -615,9 +646,9 @@ class SMDSegLoader(Dataset):
             test_data  = np.load(test_path)
             test_label = np.load(label_path)
         else:
-            train_path = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMD/SMD_train.npy",repo_type="dataset")
-            test_path  = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMD/SMD_test.npy",repo_type="dataset")
-            label_path = hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMD/SMD_test_label.npy",repo_type="dataset")
+            train_path = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMD/SMD_train.npy",repo_type="dataset")
+            test_path  = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMD/SMD_test.npy",repo_type="dataset")
+            label_path = _hf_hub_download(repo_id=HUGGINGFACE_REPO, filename="SMD/SMD_test_label.npy",repo_type="dataset")
 
             train_data  = np.load(train_path)
             test_data   = np.load(test_path)
@@ -672,7 +703,7 @@ class SWATSegLoader(Dataset):
             train_data = pd.read_csv(train2_path)
             test_data   = pd.read_csv(test_path)
         else:
-            ds = load_dataset(HUGGINGFACE_REPO, name="SWaT")
+            ds = _load_dataset_from_hf(HUGGINGFACE_REPO, name="SWaT")
             train_data = ds["train"].to_pandas()
             test_data  = ds["test"].to_pandas()
         labels = test_data.values[:, -1:]
@@ -765,7 +796,7 @@ class UEAloader(Dataset):
         local = os.path.join(root_path, fname)
         if os.path.exists(local):
             return local
-        return hf_hub_download(HUGGINGFACE_REPO, filename=f"{dataset_name}/{fname}", repo_type="dataset")
+        return _hf_hub_download(HUGGINGFACE_REPO, filename=f"{dataset_name}/{fname}", repo_type="dataset")
 
     def load_all(self, root_path, file_list=None, flag=None):
         """
@@ -786,7 +817,7 @@ class UEAloader(Dataset):
         return all_df, labels_df
 
     def load_single(self, filepath):
-        df, labels = load_from_tsfile_to_dataframe(filepath, return_separate_X_and_y=True,
+        df, labels = _load_tsfile_dataframe(filepath, return_separate_X_and_y=True,
                                                              replace_missing_vals_with='NaN')
         labels = pd.Series(labels, dtype="category")
         self.class_names = labels.cat.categories
