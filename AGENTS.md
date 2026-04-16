@@ -1,5 +1,11 @@
 # 虚拟电网净负荷预测工作说明（TimeXer）
 
+## 0. 根目录实验指南
+
+- 当前 AEMO VIC1 净负荷研究以根目录 [guide.md](/D:/project/Time-Series-Library/guide.md) 为主执行指南。
+- 若 `AGENTS.md` 与 `guide.md` 在任务定义、特征口径、实验流程上存在重复内容，以 `guide.md` 中的最新表述为准。
+- 后续新增实验、特征、基线或结论前，先同步更新 `guide.md`，再更新本文件中的对应条目。
+
 ## 1. 当前任务
 
 本仓库后续围绕「虚拟电网净负荷预测」开展工作，当前只使用 `TimeXer`，暂时不涉及 `iTransformer`、模型串联或多模型融合。
@@ -24,12 +30,12 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 
 ## 2. 数据源
 
-当前使用以下两份原始数据，二者都不在仓库内，而是在本机桌面目录：
+当前使用以下两份原始数据，默认放在仓库根目录 `data/` 下：
 
 - AEMO 电力系统数据：
-  `/Users/xuejiayao/Desktop/paper/data/aemo_vic1_hourly_2022-08-25_2025-08-24.csv`
+  `./data/aemo_vic1_hourly_2022-08-25_2025-08-24.csv`
 - NOAA 天气数据：
-  `/Users/xuejiayao/Desktop/paper/data/noaa_globalhourly_melbourne_olympic_park_hourly_2022-08-25_2025-08-24.csv`
+  `./data/noaa_globalhourly_melbourne_olympic_park_hourly_2022-08-25_2025-08-24.csv`
 
 时间对齐键统一使用：
 
@@ -310,6 +316,14 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 - 必须区分历史观测值和预测时点可获得值。
 - 任何未来时点真实观测到的结果量都不能直接作为该时点的外生输入。
 
+### 9.1 结果口径
+
+- `long_term_forecast` 的默认测试结果通常是在标准化空间里计算的；如果要和 `guide.md` 里的周期基线对齐，测试时应显式开启 `--inverse`，或者离线按训练集目标标准差换算回原始 MW 尺度。
+- 统一换算公式：
+  - `mae_raw = mae_scaled * std`
+  - `mse_raw = mse_scaled * std^2`
+- 当结果表需要和 AEMO 原始负荷量级对比时，优先保存原始 MW 尺度的指标，不要混用标准化指标。
+
 ## 10. 研究执行顺序
 
 建议按以下顺序推进：
@@ -356,10 +370,10 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 
 ### 12.2 最终结果文件
 
-最终结果只保存在本机桌面 `paper` 目录下：
+最终结果建议保存在仓库内的 `results/aemo_vic1/` 目录下：
 
-- `/Users/xuejiayao/Desktop/paper/aemo_full_summary.csv`
-- `/Users/xuejiayao/Desktop/paper/result_long_term_forecast.txt`
+- `results/aemo_vic1/aemo_full_summary.csv`
+- `results/aemo_vic1/result_long_term_forecast.txt`
 
 ### 12.3 模型总体排名（按 3 个 horizon 的平均 MSE 排序）
 
@@ -481,3 +495,12 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 - 现阶段如果目标是“先拿到更强基线”，优先使用 `DLinear` 作为对照基线。
 - 现阶段如果目标是“围绕当前研究主线继续推进”，仍以 `TimeXer` 为主，但要把工作重点放在特征工程和数据口径，而不是先继续堆叠模型复杂度。
 - 后续任何代理如果继续更新结论，必须同步更新本文件中的实验结果与结论部分，避免代码、结果和任务说明脱节。
+## 文档边界与用途
+
+- `AGENTS.md` 负责“怎么做”：代码实现、脚本参数、数据路径、实验执行、文件产物位置、可落地的约束。
+- `guide.md` 负责“做什么”和“为什么做”：研究方向、问题定义、特征边界、周期结论、实验判断标准。
+- 发生变化时先评估影响面。
+- 只影响研究假设、结论解释、特征取舍、实验路线时，优先改 `guide.md`。
+- 只影响代码、脚本、路径、数据处理、训练流程时，优先改 `AGENTS.md`。
+- 同时影响两者时，两份文档都要改，但不要重复写同一层级的内容。
+- 做实验前先看 `guide.md`，写代码前先看 `AGENTS.md`。

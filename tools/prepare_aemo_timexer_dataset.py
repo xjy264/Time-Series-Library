@@ -40,10 +40,10 @@ OUTPUT_COLUMNS = [
 ]
 
 DEFAULT_AEMO_INPUT_PATH = Path(
-    "/Users/xuejiayao/Desktop/paper/data/aemo_vic1_hourly_2022-08-25_2025-08-24.csv"
+    "./data/aemo_vic1_hourly_2022-08-25_2025-08-24.csv"
 )
 DEFAULT_NOAA_INPUT_PATH = Path(
-    "/Users/xuejiayao/Desktop/paper/data/noaa_globalhourly_melbourne_olympic_park_hourly_2022-08-25_2025-08-24.csv"
+    "./data/noaa_globalhourly_melbourne_olympic_park_hourly_2022-08-25_2025-08-24.csv"
 )
 DEFAULT_OUTPUT_PATH = Path("./dataset/aemo_vic1/aemo_vic1_timexer_weather_ms.csv")
 
