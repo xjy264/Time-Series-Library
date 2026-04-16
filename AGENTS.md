@@ -318,11 +318,12 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 
 ### 9.1 结果口径
 
-- `long_term_forecast` 的默认测试结果通常是在标准化空间里计算的；如果要和 `guide.md` 里的周期基线对齐，测试时应显式开启 `--inverse`，或者离线按训练集目标标准差换算回原始 MW 尺度。
+- `long_term_forecast` 的默认测试结果通常是在标准化空间里计算的；`guide.md` 里的对比表也默认使用这个口径。
+- 如果要和 AEMO 原始负荷量级对比，才需要显式开启 `--inverse`，或者离线按训练集目标标准差换算回原始 MW 尺度。
 - 统一换算公式：
   - `mae_raw = mae_scaled * std`
   - `mse_raw = mse_scaled * std^2`
-- 当结果表需要和 AEMO 原始负荷量级对比时，优先保存原始 MW 尺度的指标，不要混用标准化指标。
+- 当结果表需要和原始 MW 尺度对比时，优先保存原始 MW 指标，不要混用标准化指标。
 
 ## 10. 研究执行顺序
 
