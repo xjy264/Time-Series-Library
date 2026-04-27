@@ -10,7 +10,7 @@ patience="${PATIENCE:-3}"
 batch_size="${BATCH_SIZE:-16}"
 num_workers="${NUM_WORKERS:-4}"
 learning_rate="${LEARNING_RATE:-0.0005}"
-des="${DES:-AEMO-full-aemo-5min}"
+des="${DES:-AEMO-5min-direct}"
 patch_len="${PATCH_LEN:-12}"
 seq_len="${SEQ_LEN:-2016}"
 label_len="${LABEL_LEN:-144}"
@@ -27,7 +27,7 @@ for pred_len in ${pred_lens}; do
     --is_training 1 \
     --root_path ./dataset/aemo_vic1/ \
     --data_path "${data_path}" \
-    --model_id aemo_timexer_full_5min_${seq_len}_${pred_len} \
+    --model_id aemo_timexer_5min_${seq_len}_${pred_len} \
     --model ${model_name} \
     --data custom \
     --features MS \
@@ -35,20 +35,20 @@ for pred_len in ${pred_lens}; do
     --freq "${freq}" \
     --seq_len "${seq_len}" \
     --label_len "${label_len}" \
-    --pred_len ${pred_len} \
+    --pred_len "${pred_len}" \
     --e_layers 1 \
     --factor 3 \
     --enc_in "${enc_in}" \
     --dec_in "${dec_in}" \
     --c_out 1 \
-    --des ${des} \
-    --patch_len ${patch_len} \
+    --des "${des}" \
+    --patch_len "${patch_len}" \
     --d_model "${d_model}" \
     --d_ff "${d_ff}" \
-    --batch_size ${batch_size} \
-    --train_epochs ${train_epochs} \
-    --patience ${patience} \
-    --learning_rate ${learning_rate} \
-    --num_workers ${num_workers} \
+    --batch_size "${batch_size}" \
+    --train_epochs "${train_epochs}" \
+    --patience "${patience}" \
+    --learning_rate "${learning_rate}" \
+    --num_workers "${num_workers}" \
     --itr 1
 done

@@ -10,15 +10,15 @@ patience="${PATIENCE:-3}"
 batch_size="${BATCH_SIZE:-64}"
 num_workers="${NUM_WORKERS:-4}"
 learning_rate="${LEARNING_RATE:-0.001}"
-des="${DES:-AEMO-full}"
+des="${DES:-AEMO-full-1h}"
 
 for pred_len in ${pred_lens}; do
   python -u run.py \
     --task_name long_term_forecast \
     --is_training 1 \
     --root_path ./dataset/aemo_vic1/ \
-    --data_path aemo_vic1_timexer_ms.csv \
-    --model_id aemo_dlinear_168_${pred_len} \
+    --data_path aemo_vic1_dispatchis_vic1_full_1h.csv \
+    --model_id aemo_dlinear_full_1h_168_${pred_len} \
     --model ${model_name} \
     --data custom \
     --features MS \
@@ -27,8 +27,8 @@ for pred_len in ${pred_lens}; do
     --seq_len 168 \
     --label_len 48 \
     --pred_len ${pred_len} \
-    --enc_in 6 \
-    --dec_in 6 \
+    --enc_in 128 \
+    --dec_in 128 \
     --c_out 1 \
     --des ${des} \
     --batch_size ${batch_size} \

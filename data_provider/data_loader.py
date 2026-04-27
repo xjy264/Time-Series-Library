@@ -14,6 +14,23 @@ from utils.augmentation import run_augmentation_single
 warnings.filterwarnings('ignore')
 
 HUGGINGFACE_REPO = "thuml/Time-Series-Library"
+DEFAULT_LOCAL_TIMEZONE = "Australia/Melbourne"
+
+
+def _parse_datetime_index(date_values, local_timezone=DEFAULT_LOCAL_TIMEZONE):
+    date_series = pd.Series(date_values)
+    if date_series.empty:
+        return pd.DatetimeIndex([])
+
+    sample = date_series.dropna().astype(str).head(10)
+    has_timezone = sample.str.contains(r"(?:Z|[+-]\d{2}:?\d{2})$", regex=True).any()
+
+    if has_timezone:
+        parsed = pd.to_datetime(date_series, utc=True, errors='raise')
+        parsed = parsed.dt.tz_convert(local_timezone)
+        return pd.DatetimeIndex(parsed)
+
+    return pd.DatetimeIndex(pd.to_datetime(date_series, errors='raise'))
 
 
 def _load_dataset_from_hf(*args, **kwargs):
@@ -108,7 +125,7 @@ class Dataset_ETT_hour(Dataset):
             data = df_data.values
 
         df_stamp = df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
+        df_stamp['date'] = _parse_datetime_index(df_stamp.date.values)
         if self.timeenc == 0:
             df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
             df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
@@ -116,7 +133,7 @@ class Dataset_ETT_hour(Dataset):
             df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
             data_stamp = df_stamp.drop(['date'], 1).values
         elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
+            data_stamp = time_features(pd.DatetimeIndex(df_stamp['date']), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0) 
 
         self.data_x = data[border1:border2]
@@ -208,7 +225,7 @@ class Dataset_ETT_minute(Dataset):
             data = df_data.values
 
         df_stamp = df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
+        df_stamp['date'] = _parse_datetime_index(df_stamp.date.values)
         if self.timeenc == 0:
             df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
             df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
@@ -218,7 +235,7 @@ class Dataset_ETT_minute(Dataset):
             df_stamp['minute'] = df_stamp.minute.map(lambda x: x // 15)
             data_stamp = df_stamp.drop(['date'], 1).values
         elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
+            data_stamp = time_features(pd.DatetimeIndex(df_stamp['date']), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
         self.data_x = data[border1:border2]
@@ -320,7 +337,7 @@ class Dataset_Custom(Dataset):
             data = df_data.values
 
         df_stamp = df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
+        df_stamp['date'] = _parse_datetime_index(df_stamp.date.values)
         if self.timeenc == 0:
             df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
             df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
@@ -328,7 +345,7 @@ class Dataset_Custom(Dataset):
             df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
             data_stamp = df_stamp.drop(['date'], 1).values
         elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
+            data_stamp = time_features(pd.DatetimeIndex(df_stamp['date']), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
         self.data_x = data[border1:border2]

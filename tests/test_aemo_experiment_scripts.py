@@ -3,57 +3,186 @@ from pathlib import Path
 
 
 SCRIPT_DIR = Path("scripts/long_term_forecast/AEMO")
-MODEL_SCRIPTS = [
-    "Autoformer.sh",
-    "DLinear.sh",
-    "Informer.sh",
-    "PatchTST.sh",
-    "TimeMixer.sh",
+TIMEXER_SCRIPTS = [
     "TimeXer.sh",
-    "iTransformer.sh",
+    "TimeXer_5min.sh",
+]
+
+FIVE_MIN_BASELINE_SCRIPTS = [
+    "DLinear_5min.sh",
+    "DLinearGlobalTimeXer_5min.sh",
+    "VPPGDFNet_5min.sh",
+    "Informer_5min.sh",
+    "Autoformer_5min.sh",
+    "PatchTST_5min.sh",
+    "iTransformer_5min.sh",
+    "TimeMixer_5min.sh",
 ]
 
 
 class AemoExperimentScriptsTest(unittest.TestCase):
-    def test_model_scripts_exist_and_share_common_aemo_settings(self):
-        common_expectations = [
-            "--root_path ./dataset/aemo_vic1/",
-            "--data custom",
-            "--features MS",
-            "--target net_load",
-            "--freq h",
-            "--seq_len 168",
-        ]
+    def test_timexer_scripts_exist_and_use_full_datasets(self):
+        expected_snippets = {
+            "TimeXer.sh": [
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'patch_len="${PATCH_LEN:-12}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+            "TimeXer_5min.sh": [
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'patch_len="${PATCH_LEN:-12}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+        }
 
-        for script_name in MODEL_SCRIPTS:
+        for script_name in TIMEXER_SCRIPTS:
             script_path = SCRIPT_DIR / script_name
             self.assertTrue(script_path.exists(), f"missing {script_path}")
             content = script_path.read_text()
-            for expected in common_expectations:
+            for expected in expected_snippets[script_name]:
                 self.assertIn(expected, content, f"{script_name} missing {expected}")
-            expected_data_path = (
-                "--data_path aemo_vic1_timexer_weather_ms.csv"
-                if script_name == "TimeXer.sh"
-                else "--data_path aemo_vic1_timexer_ms.csv"
-            )
-            expected_enc_dec = (
-                ["--enc_in 9", "--dec_in 9"]
-                if script_name == "TimeXer.sh"
-                else ["--enc_in 6", "--dec_in 6"]
-            )
-            self.assertIn(expected_data_path, content, f"{script_name} missing {expected_data_path}")
-            for expected in expected_enc_dec:
-                self.assertIn(expected, content, f"{script_name} missing {expected}")
-            expected_c_out = "--c_out 6" if script_name == "TimeMixer.sh" else "--c_out 1"
-            self.assertIn(expected_c_out, content, f"{script_name} missing {expected_c_out}")
+            self.assertIn("--c_out 1", content, f"{script_name} missing --c_out 1")
 
     def test_batch_runner_and_summary_tools_exist(self):
         for relative_path in [
             SCRIPT_DIR / "run_smoke.sh",
             SCRIPT_DIR / "run_full.sh",
+            SCRIPT_DIR / "run_timexer.sh",
+            SCRIPT_DIR / "run_5min.sh",
+            SCRIPT_DIR / "TimeXer_5min.sh",
+            SCRIPT_DIR / "TimeXer.sh",
             SCRIPT_DIR / "summarize_results.py",
         ]:
             self.assertTrue(relative_path.exists(), f"missing {relative_path}")
+
+    def test_run_timexer_is_5min_only(self):
+        content = (SCRIPT_DIR / "run_timexer.sh").read_text()
+        self.assertIn("tools/prepare_aemo_full_multifreq_dataset.py", content)
+        self.assertIn("--freqs 5min", content)
+        self.assertIn("TimeXer_5min.sh", content)
+        self.assertNotIn("TimeXer_15min.sh", content)
+        self.assertNotIn("TimeXer_30min.sh", content)
+        self.assertNotIn("TimeXer_1h.sh", content)
+
+    def test_five_min_baseline_scripts_exist_and_use_5min_dataset(self):
+        expected_snippets = {
+            "DLinear_5min.sh": [
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+            "DLinearGlobalTimeXer_5min.sh": [
+                'model_name=DLinearGlobalTimeXer',
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+            "VPPGDFNet_5min.sh": [
+                'model_name=VPPGDFNet',
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-288}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+            "Informer_5min.sh": [
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+            "Autoformer_5min.sh": [
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+            "PatchTST_5min.sh": [
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+            "iTransformer_5min.sh": [
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-144}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+            "TimeMixer_5min.sh": [
+                'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
+                'pred_lens="${PRED_LENS:-24}"',
+                'seq_len="${SEQ_LEN:-2016}"',
+                'label_len="${LABEL_LEN:-0}"',
+                'freq="${FREQ:-5min}"',
+                'enc_in="${ENC_IN:-12}"',
+                'dec_in="${DEC_IN:-12}"',
+            ],
+        }
+
+        for script_name in FIVE_MIN_BASELINE_SCRIPTS:
+            script_path = SCRIPT_DIR / script_name
+            self.assertTrue(script_path.exists(), f"missing {script_path}")
+            content = script_path.read_text()
+            for expected in expected_snippets[script_name]:
+                self.assertIn(expected, content, f"{script_name} missing {expected}")
+            self.assertIn("--c_out 1", content, f"{script_name} missing --c_out 1")
+
+    def test_run_5min_runner_is_5min_only(self):
+        content = (SCRIPT_DIR / "run_5min.sh").read_text()
+        self.assertIn("DLinear_5min", content)
+        self.assertIn("Informer_5min", content)
+        self.assertIn("Autoformer_5min", content)
+        self.assertIn("PatchTST_5min", content)
+        self.assertIn("iTransformer_5min", content)
+        self.assertIn("TimeMixer_5min", content)
+        self.assertNotIn("TimeXer_15min.sh", content)
+        self.assertNotIn("TimeXer_30min.sh", content)
+        self.assertNotIn("TimeXer_1h.sh", content)
+
+    def test_dlinear_global_timexer_runner_exists(self):
+        runner_path = SCRIPT_DIR / "run_dlinear_global_timexer.sh"
+        self.assertTrue(runner_path.exists(), f"missing {runner_path}")
+        content = runner_path.read_text()
+        self.assertIn("DLinearGlobalTimeXer_5min.sh", content)
+
+    def test_vpp_gdfnet_runner_exists(self):
+        runner_path = SCRIPT_DIR / "run_vpp_gdfnet.sh"
+        self.assertTrue(runner_path.exists(), f"missing {runner_path}")
+        content = runner_path.read_text()
+        self.assertIn("VPPGDFNet_5min.sh", content)
 
 
 if __name__ == "__main__":

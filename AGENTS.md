@@ -10,9 +10,14 @@
 
 本仓库后续围绕「虚拟电网净负荷预测」开展工作，当前只使用 `TimeXer`，暂时不涉及 `iTransformer`、模型串联或多模型融合。
 
+补充说明：
+
+- 5min 基线对照阶段会保留 `Autoformer` / `TimeMixer` 的重设入口，用于历史结果与重跑结果分开管理。
+- 这不改变主研究方向，`TimeXer` 仍然是后续方法改造与特征研究的主线。
+
 本任务的核心目标是：
 
-- 以 AEMO 的 VIC1 小时级数据作为电力系统主数据。
+- 以 AEMO 的 VIC1 官方直采 `DISPATCHREGIONSUM` 5 分钟数据作为电力系统主数据，当前只保留 5 分钟口径，不再维护 15 分钟、30 分钟或 1 小时派生集。
 - 以 NOAA 的 Melbourne Olympic Park 小时级天气数据作为外生天气数据。
 - 构造净负荷（Net Load）预测任务。
 - 使用 `TimeXer` 建模，其中：
@@ -33,17 +38,19 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 当前使用以下两份原始数据，默认放在仓库根目录 `data/` 下：
 
 - AEMO 电力系统数据：
-  `./data/aemo_vic1_hourly_2022-08-25_2025-08-24.csv`
+  `./data/aemo_vic1/aemo_vic1_dispatchis_vic1_5min_2022-08-25_2025-08-24.csv`
 - NOAA 天气数据：
   `./data/noaa_globalhourly_melbourne_olympic_park_hourly_2022-08-25_2025-08-24.csv`
 
 时间对齐键统一使用：
 
-- `timestamp_local_hour`
+- 原始 AEMO 侧：`timestamp_local`
+- 原始 NOAA 侧：`timestamp_local_hour`
+- 成品数据侧：`date`
 
 统一粒度：
 
-- 小时级（hourly）
+- 只保留 5 分钟原始粒度作为当前主数据口径。
 
 ## 3. 建模约定
 
@@ -82,9 +89,14 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 ## 5. AEMO 数据字段说明
 
 数据文件：
-`aemo_vic1_hourly_2022-08-25_2025-08-24.csv`
+`aemo_vic1_dispatchis_vic1_5min_2022-08-25_2025-08-24.csv`
 
 字段总数：34
+
+说明：
+
+- 下面的字段说明沿用旧研究口径里的命名习惯。
+- 现在的直采链路以 AEMO 官方 `DISPATCHREGIONSUM` 5 分钟数据为基准，原始落盘会保留全量字段，再按需筛选成当前模型列。
 
 | 字段名 | 含义 | 当前标记 | 备注 |
 | --- | --- | --- | --- |
@@ -214,9 +226,15 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 首版推荐优先使用：
 
 - `air_temperature_c`
-- `dewpoint_c`
-- `sea_level_pressure_hpa`
 - `wind_speed_mps`
+
+如果要做一版稍宽的对照实验，可以再加：
+
+- `sea_level_pressure_hpa`
+
+当前不建议默认保留：
+
+- `dewpoint_c`
 - `precip_1h_mm`
 
 第二优先级可尝试：
@@ -254,18 +272,16 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 
 ### 7.3 外生变量
 
-推荐第一版只使用以下字段：
+当前推荐的第一版只使用以下字段：
 
 - AEMO：
   - `ss_solar_uigf_mw_avg`
   - `ss_wind_uigf_mw_avg`
   - `netinterchange_mw_avg`
+  - `totalintermittentgeneration_mw_avg`
 - NOAA：
   - `air_temperature_c`
-  - `dewpoint_c`
-  - `sea_level_pressure_hpa`
   - `wind_speed_mps`
-  - `precip_1h_mm`
 - 时间特征：
   - 小时
   - 星期几
@@ -276,28 +292,32 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 
 当前仓库内给 `TimeXer` 使用的专用成品数据集为：
 
-- `dataset/aemo_vic1/aemo_vic1_timexer_weather_ms.csv`
+- `dataset/aemo_vic1/aemo_vic1_dispatchis_vic1_full_5min.csv`
 
 该文件当前列结构为：
 
-- `date`
-- `ss_solar_uigf_mw_avg`
-- `ss_wind_uigf_mw_avg`
-- `netinterchange_mw_avg`
-- `air_temperature_c`
-- `dewpoint_c`
-- `sea_level_pressure_hpa`
-- `wind_speed_mps`
-- `precip_1h_mm`
-- `net_load`
+- 只保留 `date`、11 个核心变量和 `net_load`，总计 13 列
+- 时间戳列为 `date`
 
 说明：
 
-- 这是一个面向 `TimeXer` 的 `MS` 数据集。
-- `net_load` 是预测目标，也作为历史内生变量保留在输入通道中。
-- NOAA 的 `precip_1h_mm` 原始缺失很多，当前按 `0.0` 填补。
-- 其他 NOAA 缺失位置当前按时间顺序做前向/后向补齐，以保证模型训练时不出现空值。
-- 旧文件 `dataset/aemo_vic1/aemo_vic1_timexer_ms.csv` 仍保留给之前的多模型基准，不作为当前 `TimeXer` 主实验输入。
+- 这是一套全变量 AEMO 本地数据，不再保留 slim 版 TimeXer 成品集。
+- 生成时只保留 `date`、11 个核心变量和 `net_load`，总计 13 列。
+- 5 分钟直采版 `TimeXer` 的推荐训练入口是 `scripts/long_term_forecast/AEMO/TimeXer_5min.sh`。
+- 该脚本默认使用 `seq_len=2016`、`label_len=144`、`pred_len=24`、`freq=5min`、`patch_len=12`，对应过去 7 天预测未来 2 小时。
+- 这里的 `PATCH_LEN` 只是模型侧的 patch 粒度，不是把原始观测真的下采样成更粗或更细。
+- 如果要重新导出当前保留的 5 分钟 AEMO 文件，运行 `bash scripts/long_term_forecast/AEMO/run_timexer.sh`。
+
+如需重新生成当前 `TimeXer` 专用数据集并重跑实验，优先走下面这条链路：
+
+1. 把原始 AEMO 和 NOAA CSV 放到 `./data/` 下。
+2. 直接运行 `bash scripts/long_term_forecast/AEMO/run_timexer.sh` 重新导出 5 分钟文件并训练。
+3. 如果只想重建数据集，不训练模型，运行前设置 `PREPARE_ONLY=1`。
+
+补充说明：
+
+- `tools/prepare_aemo_full_multifreq_dataset.py` 会按 `timestamp_local` 处理 AEMO 官方直采全量字段，并输出当前保留的 `5min` 版本。
+- 输出列仍然保持 `date + 外生特征 + net_load`，方便直接喂给 `TimeXer` 的 `MS` 任务。
 
 ## 8. 不建议直接进入首版模型的字段
 
@@ -310,7 +330,7 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 
 ## 9. 数据处理要求
 
-- 必须先按 `timestamp_local_hour` 合并 AEMO 和 NOAA。
+- 必须先按 `timestamp_local` / `timestamp_local_hour` 完成 AEMO 和 NOAA 的时间对齐，再生成成品 `date` 列。
 - 必须检查时间对齐后的缺失值比例。
 - 必须显式记录是否存在夏令时导致的缺口或重复小时。
 - 必须区分历史观测值和预测时点可获得值。
@@ -354,7 +374,7 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 
 ### 12.1 实验范围
 
-- 数据集：`dataset/aemo_vic1/aemo_vic1_timexer_ms.csv`
+- 数据集：历史 slim 口径（已删除，不再作为当前主线）
 - 任务：`long_term_forecast`
 - 目标变量：`net_load`
 - 输入长度：`seq_len = 168`
@@ -453,7 +473,7 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 
 #### 数据口径
 
-- 数据文件：`dataset/aemo_vic1/aemo_vic1_timexer_weather_ms.csv`
+- 数据文件：历史 slim 天气口径（已删除，不再作为当前主线）
 - 输入列：
   - `ss_solar_uigf_mw_avg`
   - `ss_wind_uigf_mw_avg`
@@ -472,7 +492,7 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 | 模型版本 | `pred_len=24` MSE / MAE | `pred_len=48` MSE / MAE | `pred_len=96` MSE / MAE | 平均 MSE | 平均 MAE |
 | --- | --- | --- | --- | ---: | ---: |
 | 旧版 `TimeXer`（无 NOAA） | 0.6608 / 0.6209 | 0.9159 / 0.7430 | 1.0484 / 0.8080 | 0.8750 | 0.7240 |
-| 新版 `TimeXer`（含 NOAA） | 0.6886 / 0.6385 | 0.9156 / 0.7460 | 1.0814 / 0.8267 | 0.8952 | 0.7371 |
+| 新版 `TimeXer`（含 NOAA） | 0.6886 / 0.6385 | 0.9156 / 0.7460 | 1.0849 / 0.8175 | 0.8964 | 0.7340 |
 
 #### 结论
 
@@ -480,7 +500,7 @@ net_load = totaldemand_mw_avg - uigf_mw_avg
 - 具体看：
   - `pred_len = 24` 变差，`MSE` 增加约 0.0278。
   - `pred_len = 48` 的 `MSE` 基本持平，略好约 0.0003，但 `MAE` 略差。
-  - `pred_len = 96` 变差，`MSE` 增加约 0.0330。
+  - `pred_len = 96` 变差，`MSE` 增加约 0.0365。
 - 因此，当前不能得出“加入这版 NOAA 天气特征后，`TimeXer` 性能提升”的结论。
 
 #### 原因推断

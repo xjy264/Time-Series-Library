@@ -61,8 +61,19 @@ class Model(nn.Module):
         dropout=configs.dropout
 
         
-        freq_map = {'h': 4, 't': 5, 's': 6,
-                    'm': 1, 'a': 1, 'w': 2, 'd': 3, 'b': 3}
+        freq_map = {
+            '5min': 5,
+            '15min': 5,
+            '30min': 5,
+            'h': 4,
+            't': 5,
+            's': 6,
+            'm': 1,
+            'a': 1,
+            'w': 2,
+            'd': 3,
+            'b': 3,
+        }
         
         self.feature_dim=freq_map[self.freq]
 
@@ -140,6 +151,5 @@ class Model(nn.Module):
         return None
     
     
-
 
 
