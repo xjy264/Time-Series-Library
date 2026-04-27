@@ -3,13 +3,14 @@ set -euo pipefail
 
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
-model_name=DLinear
+model_name=TimesNet
+python_bin="${PYTHON:-python3}"
 pred_lens="${PRED_LENS:-24 48 96 288}"
 train_epochs="${TRAIN_EPOCHS:-10}"
 patience="${PATIENCE:-3}"
-batch_size="${BATCH_SIZE:-64}"
+batch_size="${BATCH_SIZE:-32}"
 num_workers="${NUM_WORKERS:-4}"
-learning_rate="${LEARNING_RATE:-0.001}"
+learning_rate="${LEARNING_RATE:-0.0005}"
 des="${DES:-AEMO-5min}"
 seq_len="${SEQ_LEN:-288}"
 label_len="${LABEL_LEN:-144}"
@@ -17,14 +18,16 @@ data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"
 freq="${FREQ:-5min}"
 enc_in="${ENC_IN:-12}"
 dec_in="${DEC_IN:-12}"
+d_model="${D_MODEL:-128}"
+d_ff="${D_FF:-256}"
 
 for pred_len in ${pred_lens}; do
-  python -u run.py \
+  "${python_bin}" -u run.py \
     --task_name long_term_forecast \
     --is_training 1 \
     --root_path ./dataset/aemo_vic1/ \
     --data_path "${data_path}" \
-    --model_id aemo_dlinear_5min_${seq_len}_${pred_len} \
+    --model_id aemo_timesnet_5min_${seq_len}_${pred_len} \
     --model ${model_name} \
     --data custom \
     --features MS \
@@ -33,10 +36,15 @@ for pred_len in ${pred_lens}; do
     --seq_len "${seq_len}" \
     --label_len "${label_len}" \
     --pred_len "${pred_len}" \
+    --e_layers 2 \
+    --d_layers 1 \
+    --factor 3 \
     --enc_in "${enc_in}" \
     --dec_in "${dec_in}" \
     --c_out 1 \
     --des "${des}" \
+    --d_model "${d_model}" \
+    --d_ff "${d_ff}" \
     --batch_size "${batch_size}" \
     --train_epochs "${train_epochs}" \
     --patience "${patience}" \

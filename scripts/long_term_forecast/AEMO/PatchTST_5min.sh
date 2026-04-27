@@ -4,14 +4,14 @@ set -euo pipefail
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 model_name=PatchTST
-pred_lens="${PRED_LENS:-24}"
+pred_lens="${PRED_LENS:-24 48 96 288}"
 train_epochs="${TRAIN_EPOCHS:-10}"
 patience="${PATIENCE:-3}"
 batch_size="${BATCH_SIZE:-32}"
 num_workers="${NUM_WORKERS:-4}"
 learning_rate="${LEARNING_RATE:-0.0005}"
 des="${DES:-AEMO-5min}"
-seq_len="${SEQ_LEN:-2016}"
+seq_len="${SEQ_LEN:-288}"
 label_len="${LABEL_LEN:-144}"
 data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"
 freq="${FREQ:-5min}"

@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+set -u -o pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/../../.." && pwd)"
+cd "${repo_root}"
+
+models=(
+  DLinear
+  PatchTST
+  Informer
+  Autoformer
+  TimesNet
+  TimeXer
+  VPPGDFNet
+)
+pred_lens=(24 48 96 288)
+
+skip_case() {
+  local model="$1"
+  local pred_len="$2"
+  [[ "${model}" == "DLinear" && "${pred_len}" == "24" ]] || \
+  [[ "${model}" == "TimeXer" && "${pred_len}" == "24" ]]
+}
+
+script_for_model() {
+  local model="$1"
+  case "${model}" in
+    DLinear) echo "DLinear_5min.sh" ;;
+    PatchTST) echo "PatchTST_5min.sh" ;;
+    Informer) echo "Informer_5min.sh" ;;
+    Autoformer) echo "Autoformer_5min.sh" ;;
+    TimesNet) echo "TimesNet_5min.sh" ;;
+    TimeXer) echo "TimeXer_5min.sh" ;;
+    VPPGDFNet) echo "VPPGDFNet_5min.sh" ;;
+    *) return 1 ;;
+  esac
+}
+
+slug_for_model() {
+  local model="$1"
+  printf '%s' "${model}" | tr '[:upper:]' '[:lower:]' | tr -d '-'
+}
+
+csv_escape() {
+  local value="${1//\"/\"\"}"
+  printf '"%s"' "${value}"
+}
+
+extract_metric() {
+  local log_file="$1"
+  local key="$2"
+  python3 - "$log_file" "$key" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+key = sys.argv[2]
+text = path.read_text(errors="ignore") if path.exists() else ""
+matches = re.findall(r"mse:([-+0-9.eE]+), mae:([-+0-9.eE]+), dtw:([^\n\r]+)", text)
+if not matches:
+    sys.exit(0)
+mse, mae, dtw = matches[-1]
+print({"mse": mse, "mae": mae, "dtw": dtw.strip()}[key])
+PY
+}
+
+run_id="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
+log_dir="${LOG_DIR:-results/aemo_vic1/rerun_5min_matrix_${run_id}}"
+summary_csv="${SUMMARY_CSV:-${log_dir}/summary.csv}"
+seq_len="${SEQ_LEN:-288}"
+label_len="${LABEL_LEN:-144}"
+train_epochs="${TRAIN_EPOCHS:-10}"
+patience="${PATIENCE:-3}"
+num_workers="${NUM_WORKERS:-4}"
+
+mkdir -p "${log_dir}"
+printf 'run_id,model,seq_len,pred_len,status,mse,mae,dtw,log_file,started_at,ended_at,exit_code\n' > "${summary_csv}"
+
+for model in "${models[@]}"; do
+  for pred_len in "${pred_lens[@]}"; do
+    if skip_case "${model}" "${pred_len}"; then
+      continue
+    fi
+
+    script_name="$(script_for_model "${model}")" || continue
+    script_path="${script_dir}/${script_name}"
+    model_slug="$(slug_for_model "${model}")"
+    log_file="${log_dir}/${model_slug}_sl${seq_len}_pl${pred_len}.log"
+    started_at="$(date -Iseconds)"
+
+    echo "[${started_at}] START ${model} seq_len=${seq_len} pred_len=${pred_len}"
+
+    set +e
+    PRED_LENS="${pred_len}" \
+    SEQ_LEN="${seq_len}" \
+    LABEL_LEN="${label_len}" \
+    TRAIN_EPOCHS="${train_epochs}" \
+    PATIENCE="${patience}" \
+    NUM_WORKERS="${num_workers}" \
+    DES="${DES:-AEMO-5min-matrix26}" \
+    bash "${script_path}" > "${log_file}" 2>&1
+    exit_code=$?
+    set -e
+
+    ended_at="$(date -Iseconds)"
+    if [[ ${exit_code} -eq 0 ]]; then
+      status="success"
+    else
+      status="failed"
+    fi
+
+    mse="$(extract_metric "${log_file}" mse)"
+    mae="$(extract_metric "${log_file}" mae)"
+    dtw="$(extract_metric "${log_file}" dtw)"
+
+    {
+      csv_escape "${run_id}"; printf ','
+      csv_escape "${model}"; printf ','
+      csv_escape "${seq_len}"; printf ','
+      csv_escape "${pred_len}"; printf ','
+      csv_escape "${status}"; printf ','
+      csv_escape "${mse}"; printf ','
+      csv_escape "${mae}"; printf ','
+      csv_escape "${dtw}"; printf ','
+      csv_escape "${log_file}"; printf ','
+      csv_escape "${started_at}"; printf ','
+      csv_escape "${ended_at}"; printf ','
+      csv_escape "${exit_code}"; printf '\n'
+    } >> "${summary_csv}"
+
+    echo "[${ended_at}] END ${model} seq_len=${seq_len} pred_len=${pred_len} status=${status} exit_code=${exit_code} mse=${mse} mae=${mae}"
+  done
+done
+
+echo "Wrote summary to ${summary_csv}"
