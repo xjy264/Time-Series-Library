@@ -1,5 +1,5 @@
 set -e
-export CUDA_VISIBLE_DEVICES=3
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 model_name=VPPGDFNet
 pred_lens="${PRED_LENS:-96 192 336 720}"
