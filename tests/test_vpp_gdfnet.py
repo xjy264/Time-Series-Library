@@ -49,6 +49,51 @@ class VPPGDFNetTest(unittest.TestCase):
 
         self.assertEqual(output.shape, (2, configs.pred_len, 1))
 
+
+    def test_m_forecast_returns_all_output_channels(self):
+        if torch is None:
+            self.skipTest("torch is required for model forward tests")
+
+        from models.VPPGDFNet import Model
+
+        configs = self._configs()
+        configs.features = "M"
+        configs.enc_in = 7
+        configs.dec_in = 7
+        configs.c_out = 7
+        configs.freq = "h"
+        model = Model(configs)
+        x_enc = torch.randn(2, configs.seq_len, configs.enc_in)
+        x_mark_enc = torch.randn(2, configs.seq_len, 4)
+        x_dec = torch.randn(2, configs.label_len + configs.pred_len, configs.dec_in)
+        x_mark_dec = torch.randn(2, configs.label_len + configs.pred_len, 4)
+
+        output = model(x_enc, x_mark_enc, x_dec, x_mark_dec)
+
+        self.assertEqual(output.shape, (2, configs.pred_len, configs.c_out))
+
+    def test_weather_like_m_forecast_returns_all_output_channels(self):
+        if torch is None:
+            self.skipTest("torch is required for model forward tests")
+
+        from models.VPPGDFNet import Model
+
+        configs = self._configs()
+        configs.features = "M"
+        configs.enc_in = 21
+        configs.dec_in = 21
+        configs.c_out = 21
+        configs.freq = "t"
+        model = Model(configs)
+        x_enc = torch.randn(2, configs.seq_len, configs.enc_in)
+        x_mark_enc = torch.randn(2, configs.seq_len, 5)
+        x_dec = torch.randn(2, configs.label_len + configs.pred_len, configs.dec_in)
+        x_mark_dec = torch.randn(2, configs.label_len + configs.pred_len, 5)
+
+        output = model(x_enc, x_mark_enc, x_dec, x_mark_dec)
+
+        self.assertEqual(output.shape, (2, configs.pred_len, configs.c_out))
+
     def test_target_decomposition_uses_target_channel_only(self):
         if torch is None:
             self.skipTest("torch is required for model forward tests")

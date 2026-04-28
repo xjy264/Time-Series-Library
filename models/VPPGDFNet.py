@@ -56,6 +56,7 @@ class Model(nn.Module):
         self.features = configs.features
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len
+        self.c_out = configs.c_out
         self.use_norm = getattr(configs, "use_norm", 0)
         self.decomposition = series_decomp(configs.moving_avg)
 
@@ -108,12 +109,12 @@ class Model(nn.Module):
             for _ in range(configs.e_layers)
         ])
 
-        self.trend_projection = nn.Linear(configs.d_model, configs.pred_len)
-        self.seasonal_projection = nn.Linear(configs.d_model, configs.pred_len)
+        self.trend_projection = nn.Linear(configs.d_model, configs.pred_len * configs.c_out)
+        self.seasonal_projection = nn.Linear(configs.d_model, configs.pred_len * configs.c_out)
         self.branch_gate = nn.Sequential(
             nn.Linear(configs.d_model * 2, configs.d_model),
             nn.GELU(),
-            nn.Linear(configs.d_model, configs.pred_len),
+            nn.Linear(configs.d_model, configs.pred_len * configs.c_out),
             nn.Sigmoid(),
         )
 
@@ -139,14 +140,20 @@ class Model(nn.Module):
         for layer in self.seasonal_fusion_layers:
             seasonal_query = layer(seasonal_query, exog_tokens)
 
-        trend_pred = self.trend_projection(trend_query.squeeze(1)).unsqueeze(-1)
-        seasonal_pred = self.seasonal_projection(seasonal_query.squeeze(1)).unsqueeze(-1)
-        beta = self.branch_gate(torch.cat([trend_query.squeeze(1), seasonal_query.squeeze(1)], dim=-1)).unsqueeze(-1)
+        trend_pred = self.trend_projection(trend_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
+        seasonal_pred = self.seasonal_projection(seasonal_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
+        beta = self.branch_gate(torch.cat([trend_query.squeeze(1), seasonal_query.squeeze(1)], dim=-1)).view(
+            -1, self.pred_len, self.c_out
+        )
         dec_out = beta * trend_pred + (1 - beta) * seasonal_pred
 
         if self.use_norm:
-            dec_out = dec_out * stdev[:, 0, -1:].unsqueeze(1).repeat(1, self.pred_len, 1)
-            dec_out = dec_out + means[:, 0, -1:].unsqueeze(1).repeat(1, self.pred_len, 1)
+            if self.c_out == x_enc.shape[-1]:
+                dec_out = dec_out * stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
+                dec_out = dec_out + means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
+            else:
+                dec_out = dec_out * stdev[:, 0, -self.c_out:].unsqueeze(1).repeat(1, self.pred_len, 1)
+                dec_out = dec_out + means[:, 0, -self.c_out:].unsqueeze(1).repeat(1, self.pred_len, 1)
 
         return dec_out
 
