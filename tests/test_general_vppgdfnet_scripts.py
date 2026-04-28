@@ -33,6 +33,7 @@ class GeneralVPPGDFNetScriptsTest(unittest.TestCase):
             timexer_content = timexer_path.read_text()
             vpp_content = vpp_path.read_text()
             self.assertIn("model_name=VPPGDFNet", vpp_content)
+            self.assertIn('pred_lens="${PRED_LENS:-96 192 336 720}"', vpp_content)
             self.assertNotIn("model_name=TimeXer", vpp_content)
             self.assertIn("--des 'VPPGDFNet-TimeXerParams'", vpp_content)
 
