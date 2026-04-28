@@ -34,6 +34,8 @@ class GeneralVPPGDFNetScriptsTest(unittest.TestCase):
             vpp_content = vpp_path.read_text()
             self.assertIn("model_name=VPPGDFNet", vpp_content)
             self.assertIn('pred_lens="${PRED_LENS:-96 192 336 720}"', vpp_content)
+            self.assertIn('export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"', vpp_content)
+            self.assertIn("set -e", vpp_content)
             self.assertNotIn("model_name=TimeXer", vpp_content)
             self.assertIn("--des 'VPPGDFNet-TimeXerParams'", vpp_content)
 

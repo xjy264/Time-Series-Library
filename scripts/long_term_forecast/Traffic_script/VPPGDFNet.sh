@@ -1,3 +1,4 @@
+set -e
 export CUDA_VISIBLE_DEVICES=3
 
 model_name=VPPGDFNet
