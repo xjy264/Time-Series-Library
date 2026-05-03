@@ -133,13 +133,13 @@ bash scripts/long_term_forecast/AEMO/run_timexer.sh
 
 | 模型 | `seq_len` | `pred_len=24` MSE / MAE | `pred_len=48` MSE / MAE | `pred_len=96` MSE / MAE | `pred_len=288` MSE / MAE | 结果来源 | 状态 / 备注 |
 | --- | ---: | --- | --- | --- | --- | --- | --- |
-| `DLinear` | 288 | 0.060842 / 0.170233 |  |  |  | `result_long_term_forecast.txt` | 已完成；过去 24 小时预测未来 2 小时 |
-| `PatchTST` | 288 |  |  |  |  |  |  |
-| `Informer` | 288 |  |  |  |  |  |  |
-| `Autoformer` | 288 |  |  |  |  |  |  |
-| `TimesNet` | 288 |  |  |  |  |  |  |
-| `TimeXer` | 288 | 0.048770 / 0.153902 |  |  |  | `result_long_term_forecast.txt` | 已完成；优于同口径 `DLinear` |
-| `VPP-GDFNet` | 288 |  |  |  |  |  |  |
+| `DLinear` | 288 | 0.060842 / 0.170233 | 0.162010 / 0.280279 | 0.349707 / 0.424036 | 0.648378 / 0.611372 | `result_long_term_forecast.txt`；`results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成；`pred_len=24` 来自单独补跑，其余来自矩阵重跑 |
+| `PatchTST` | 288 | 0.054667 / 0.163969 | 0.144515 / 0.262663 | 0.330549 / 0.414200 | 0.739699 / 0.640046 | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成 |
+| `Informer` | 288 | 0.071306 / 0.194340 | 0.164794 / 0.300190 | 0.360403 / 0.455223 | 0.904266 / 0.716028 | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成 |
+| `Autoformer` | 288 | 0.391551 / 0.498940 | 0.508135 / 0.564487 | 0.629772 / 0.619995 | 1.127724 / 0.832498 | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成 |
+| `TimesNet` | 288 | 0.054802 / 0.168520 | 0.137032 / 0.266420 |  |  | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | `pred_len=24/48` 已完成；`pred_len=96/288` 失败，`exit_code=143` |
+| `TimeXer` | 288 | 0.048770 / 0.153902 | 0.125251 / 0.245216 | 0.275121 / 0.370865 | 0.668956 / 0.603381 | `result_long_term_forecast.txt`；`results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成；`pred_len=24` 来自单独补跑，其余来自矩阵重跑 |
+| `VPP-GDFNet` | 288 | 0.052243 / 0.159371 | 0.133698 / 0.257003 | 0.293570 / 0.382305 | 0.690999 / 0.616395 | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成 |
 
 ### 4.4 实验记录要求
 
@@ -168,18 +168,36 @@ bash scripts/long_term_forecast/AEMO/run_timexer.sh
 | 平均值 | 每个数据集 4 个 horizon 的成功结果算术平均；另计算全部成功实验总体平均 |
 | 结果用途 | 验证跨数据集泛化性，不作为 AEMO 主结论的直接替代 |
 
-下表用于记录 `VPP-GDFNet` 在通用数据集上的泛化结果。已完成实验后填写对应 `MSE / MAE`、平均值、结果来源和备注；未完成实验保持空白。
+#### TimeXer Table 3 同口径对比表
+
+下表以 TimeXer 论文正文 Table 3 的多变量长期预测平均结果为基准，用于论文中的公开 benchmark 对比叙事。已有基线列沿用 TimeXer Table 3，`VPP-GDFNet` 列填入本文在相同通用数据集脚本参数下补跑的平均结果。
+
+说明：TimeXer Table 3 记录的是 `pred_len ∈ {96, 192, 336, 720}` 的平均结果，不展开单个 horizon；原表不包含 `Stationary`，因此本表也不列该模型。
+
+| 数据集 | TimeXer | iTransformer | RLinear | PatchTST | Crossformer | TiDE | TimesNet | DLinear | SCINet | Autoformer | VPP-GDFNet | 备注 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `ECL` | 0.171 / 0.270 | 0.178 / 0.270 | 0.219 / 0.298 | 0.205 / 0.290 | 0.244 / 0.334 | 0.251 / 0.244 | 0.192 / 0.295 | 0.212 / 0.300 | 0.268 / 0.365 | 0.227 / 0.338 | 0.186484 / 0.287971 |  |
+| `Weather` | 0.241 / 0.271 | 0.258 / 0.278 | 0.272 / 0.291 | 0.259 / 0.281 | 0.259 / 0.315 | 0.271 / 0.320 | 0.259 / 0.287 | 0.265 / 0.317 | 0.292 / 0.363 | 0.338 / 0.382 | 0.269793 / 0.292173 |  |
+| `ETTh1` | 0.437 / 0.437 | 0.454 / 0.447 | 0.446 / 0.434 | 0.469 / 0.454 | 0.529 / 0.522 | 0.541 / 0.507 | 0.458 / 0.450 | 0.456 / 0.452 | 0.747 / 0.647 | 0.496 / 0.487 | 0.518306 / 0.481399 |  |
+| `ETTh2` | 0.367 / 0.396 | 0.383 / 0.407 | 0.374 / 0.398 | 0.387 / 0.407 | 0.942 / 0.684 | 0.611 / 0.550 | 0.414 / 0.427 | 0.559 / 0.515 | 0.954 / 0.723 | 0.450 / 0.459 | 0.423900 / 0.427778 |  |
+| `ETTm1` | 0.382 / 0.397 | 0.407 / 0.410 | 0.414 / 0.407 | 0.387 / 0.400 | 0.512 / 0.496 | 0.419 / 0.419 | 0.400 / 0.406 | 0.403 / 0.407 | 0.485 / 0.481 | 0.588 / 0.517 | 0.476054 / 0.446535 |  |
+| `ETTm2` | 0.274 / 0.322 | 0.288 / 0.332 | 0.286 / 0.327 | 0.281 / 0.326 | 0.757 / 0.610 | 0.358 / 0.404 | 0.291 / 0.333 | 0.350 / 0.401 | 0.571 / 0.537 | 0.327 / 0.371 | 0.289253 / 0.330498 |  |
+| `Traffic` | 0.466 / 0.287 | 0.428 / 0.282 | 0.626 / 0.378 | 0.481 / 0.304 | 0.550 / 0.304 | 0.760 / 0.473 | 0.620 / 0.336 | 0.625 / 0.383 | 0.804 / 0.509 | 0.628 / 0.379 | 0.619379 / 0.320857 | `VPP-GDFNet` 仅统计 `pred_len=96/192/336` 成功结果；`pred_len=720` 失败，`exit_code=1` |
+
+#### VPP-GDFNet 原始实验记录表
+
+下表不用于替代上面的 TimeXer Table 3 同口径对比表，只用于保存 `VPP-GDFNet` 在远程 `summary.csv` 和 `averages.csv` 中回填的原始实验结果、平均值和失败记录，便于后续追溯。
 
 | 数据集 | `seq_len` | `pred_len=96` MSE / MAE | `pred_len=192` MSE / MAE | `pred_len=336` MSE / MAE | `pred_len=720` MSE / MAE | 平均 MSE / MAE | 结果来源 | 状态 / 备注 |
 | --- | ---: | --- | --- | --- | --- | --- | --- | --- |
-| `ETTh1` | 96 |  |  |  |  |  |  | 待实验 |
-| `ETTh2` | 96 |  |  |  |  |  |  | 待实验 |
-| `ETTm1` | 96 |  |  |  |  |  |  | 待实验 |
-| `ETTm2` | 96 |  |  |  |  |  |  | 待实验 |
-| `Weather` | 96 |  |  |  |  |  |  | 待实验 |
-| `ECL` | 96 |  |  |  |  |  |  | 待实验 |
-| `Traffic` | 96 |  |  |  |  |  |  | 待实验 |
-| `ALL` | 96 |  |  |  |  |  |  | 全部成功实验总体平均 |
+| `ETTh1` | 96 | 0.469692 / 0.450498 | 0.502965 / 0.469367 | 0.539116 / 0.486969 | 0.561449 / 0.518762 | 0.518306 / 0.481399 | `results/general_vppgdfnet_timexer_params/vpp_general_20260428_150042/summary.csv`；`averages.csv` | 已完成 |
+| `ETTh2` | 96 | 0.346841 / 0.378195 | 0.427705 / 0.423706 | 0.444531 / 0.441439 | 0.476524 / 0.467772 | 0.423900 / 0.427778 | `results/general_vppgdfnet_timexer_params/vpp_general_20260428_150042/summary.csv`；`averages.csv` | 已完成 |
+| `ETTm1` | 96 | 0.415930 / 0.410336 | 0.454203 / 0.433047 | 0.487857 / 0.453956 | 0.546226 / 0.488801 | 0.476054 / 0.446535 | `results/general_vppgdfnet_timexer_params/vpp_general_20260428_150042/summary.csv`；`averages.csv` | 已完成 |
+| `ETTm2` | 96 | 0.185142 / 0.267160 | 0.248007 / 0.306010 | 0.311628 / 0.345318 | 0.412233 / 0.403506 | 0.289253 / 0.330498 | `results/general_vppgdfnet_timexer_params/vpp_general_20260428_150042/summary.csv`；`averages.csv` | 已完成 |
+| `Weather` | 96 | 0.186901 / 0.231593 | 0.236663 / 0.270874 | 0.292561 / 0.310344 | 0.363048 / 0.355881 | 0.269793 / 0.292173 | `results/general_vppgdfnet_timexer_params/vpp_general_20260428_150042/summary.csv`；`averages.csv` | 已完成 |
+| `ECL` | 96 | 0.165116 / 0.268507 | 0.179926 / 0.281514 | 0.187202 / 0.289611 | 0.213693 / 0.312254 | 0.186484 / 0.287971 | `results/general_vppgdfnet_timexer_params/vpp_general_20260428_150042/summary.csv`；`averages.csv` | 已完成 |
+| `Traffic` | 96 | 0.601038 / 0.313382 | 0.627238 / 0.325153 | 0.629862 / 0.324035 |  | 0.619379 / 0.320857 | `results/general_vppgdfnet_timexer_params/vpp_general_20260428_150042/summary.csv`；`averages.csv` | `pred_len=96/192/336` 已完成；`pred_len=720` 失败，`exit_code=1` |
+| `ALL` | 96 |  |  |  |  | 0.389381 / 0.371407 | `results/general_vppgdfnet_timexer_params/vpp_general_20260428_150042/averages.csv` | 全部成功实验总体平均；`27 success, 1 failed` |
 
 泛化性判断建议：
 
