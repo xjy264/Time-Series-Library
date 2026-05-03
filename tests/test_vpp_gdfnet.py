@@ -129,6 +129,48 @@ class VPPGDFNetTest(unittest.TestCase):
         self.assertNotIn("sparse", content.lower())
         self.assertNotIn("variable_gate", content)
 
+    def test_supported_ablation_modes_return_expected_shape(self):
+        if torch is None:
+            self.skipTest("torch is required for model forward tests")
+
+        from models.VPPGDFNet import Model
+
+        for ablation in ["full", "no_exog", "unified_exog", "no_final_gate"]:
+            with self.subTest(ablation=ablation):
+                configs = self._configs()
+                configs.vpp_ablation = ablation
+                model = Model(configs)
+                x_enc = torch.randn(2, configs.seq_len, configs.enc_in)
+                x_mark_enc = torch.randn(2, configs.seq_len, 5)
+                x_dec = torch.randn(2, configs.label_len + configs.pred_len, configs.dec_in)
+                x_mark_dec = torch.randn(2, configs.label_len + configs.pred_len, 5)
+
+                output = model(x_enc, x_mark_enc, x_dec, x_mark_dec)
+
+                self.assertEqual(output.shape, (2, configs.pred_len, 1))
+
+    def test_unknown_ablation_mode_is_rejected(self):
+        if torch is None:
+            self.skipTest("torch is required for model forward tests")
+
+        from models.VPPGDFNet import Model
+
+        configs = self._configs()
+        configs.vpp_ablation = "bad_mode"
+
+        with self.assertRaisesRegex(ValueError, "Unsupported VPPGDFNet ablation mode"):
+            Model(configs)
+
+    def test_source_declares_all_ablation_modes(self):
+        model_content = Path("models/VPPGDFNet.py").read_text()
+        run_content = Path("run.py").read_text()
+
+        self.assertIn("vpp_ablation", model_content)
+        self.assertIn("--vpp_ablation", run_content)
+        for ablation in ["full", "no_exog", "unified_exog", "no_final_gate"]:
+            self.assertIn(ablation, model_content)
+            self.assertIn(ablation, run_content)
+
 
 if __name__ == "__main__":
     unittest.main()

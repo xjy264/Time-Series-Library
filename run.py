@@ -140,6 +140,11 @@ if __name__ == '__main__':
     # TimeXer
     parser.add_argument('--patch_len', type=int, default=16, help='patch length')
 
+    # VPP-GDFNet ablation
+    parser.add_argument('--vpp_ablation', type=str, default='full',
+                        choices=['full', 'no_exog', 'unified_exog', 'no_final_gate'],
+                        help='VPPGDFNet ablation mode')
+
     # GCN
     parser.add_argument('--node_dim', type=int, default=10, help='each node embbed to dim dimentions')
     parser.add_argument('--gcn_depth', type=int, default=2, help='')

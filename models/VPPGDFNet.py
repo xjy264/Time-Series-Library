@@ -50,6 +50,8 @@ class CrossAttentionFusionLayer(nn.Module):
 
 
 class Model(nn.Module):
+    SUPPORTED_ABLATIONS = {"full", "no_exog", "unified_exog", "no_final_gate"}
+
     def __init__(self, configs):
         super().__init__()
         self.task_name = configs.task_name
@@ -58,6 +60,9 @@ class Model(nn.Module):
         self.pred_len = configs.pred_len
         self.c_out = configs.c_out
         self.use_norm = getattr(configs, "use_norm", 0)
+        self.vpp_ablation = getattr(configs, "vpp_ablation", "full")
+        if self.vpp_ablation not in self.SUPPORTED_ABLATIONS:
+            raise ValueError(f"Unsupported VPPGDFNet ablation mode: {self.vpp_ablation}")
         self.decomposition = series_decomp(configs.moving_avg)
 
         self.trend_token = ComponentToken(
@@ -108,9 +113,25 @@ class Model(nn.Module):
             )
             for _ in range(configs.e_layers)
         ])
+        self.unified_query_projection = nn.Linear(configs.d_model * 2, configs.d_model)
+        self.unified_fusion_layers = nn.ModuleList([
+            CrossAttentionFusionLayer(
+                AttentionLayer(
+                    FullAttention(False, configs.factor, attention_dropout=configs.dropout, output_attention=False),
+                    configs.d_model,
+                    configs.n_heads,
+                ),
+                configs.d_model,
+                configs.d_ff,
+                dropout=configs.dropout,
+                activation=configs.activation,
+            )
+            for _ in range(configs.e_layers)
+        ])
 
         self.trend_projection = nn.Linear(configs.d_model, configs.pred_len * configs.c_out)
         self.seasonal_projection = nn.Linear(configs.d_model, configs.pred_len * configs.c_out)
+        self.unified_projection = nn.Linear(configs.d_model, configs.pred_len * configs.c_out)
         self.branch_gate = nn.Sequential(
             nn.Linear(configs.d_model * 2, configs.d_model),
             nn.GELU(),
@@ -133,19 +154,32 @@ class Model(nn.Module):
         trend_component, seasonal_component = self.decompose_target(x_enc)
         trend_query, _ = self.trend_token(trend_component)
         seasonal_query, _ = self.seasonal_token(seasonal_component)
-        exog_tokens = self.ex_embedding(x_enc[:, :, :-1], x_mark_enc)
 
-        for layer in self.trend_fusion_layers:
-            trend_query = layer(trend_query, exog_tokens)
-        for layer in self.seasonal_fusion_layers:
-            seasonal_query = layer(seasonal_query, exog_tokens)
+        if self.vpp_ablation == "unified_exog":
+            exog_tokens = self.ex_embedding(x_enc[:, :, :-1], x_mark_enc)
+            unified_query = self.unified_query_projection(
+                torch.cat([trend_query.squeeze(1), seasonal_query.squeeze(1)], dim=-1)
+            ).unsqueeze(1)
+            for layer in self.unified_fusion_layers:
+                unified_query = layer(unified_query, exog_tokens)
+            dec_out = self.unified_projection(unified_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
+        else:
+            if self.vpp_ablation != "no_exog":
+                exog_tokens = self.ex_embedding(x_enc[:, :, :-1], x_mark_enc)
+                for layer in self.trend_fusion_layers:
+                    trend_query = layer(trend_query, exog_tokens)
+                for layer in self.seasonal_fusion_layers:
+                    seasonal_query = layer(seasonal_query, exog_tokens)
 
-        trend_pred = self.trend_projection(trend_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
-        seasonal_pred = self.seasonal_projection(seasonal_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
-        beta = self.branch_gate(torch.cat([trend_query.squeeze(1), seasonal_query.squeeze(1)], dim=-1)).view(
-            -1, self.pred_len, self.c_out
-        )
-        dec_out = beta * trend_pred + (1 - beta) * seasonal_pred
+            trend_pred = self.trend_projection(trend_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
+            seasonal_pred = self.seasonal_projection(seasonal_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
+            if self.vpp_ablation == "no_final_gate":
+                dec_out = 0.5 * trend_pred + 0.5 * seasonal_pred
+            else:
+                beta = self.branch_gate(torch.cat([trend_query.squeeze(1), seasonal_query.squeeze(1)], dim=-1)).view(
+                    -1, self.pred_len, self.c_out
+                )
+                dec_out = beta * trend_pred + (1 - beta) * seasonal_pred
 
         if self.use_norm:
             if self.c_out == x_enc.shape[-1]:

@@ -69,6 +69,7 @@ class AemoExperimentScriptsTest(unittest.TestCase):
             SCRIPT_DIR / "run_timexer.sh",
             SCRIPT_DIR / "run_5min.sh",
             SCRIPT_DIR / "run_5min_matrix_26.sh",
+            SCRIPT_DIR / "run_vppgdfnet_ablation_5min.sh",
             SCRIPT_DIR / "TimeXer_5min.sh",
             SCRIPT_DIR / "TimeXer.sh",
             SCRIPT_DIR / "summarize_results.py",
@@ -107,6 +108,7 @@ class AemoExperimentScriptsTest(unittest.TestCase):
             ],
             "VPPGDFNet_5min.sh": [
                 'model_name=VPPGDFNet',
+                'ablation="${VPP_ABLATION:-full}"',
                 'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
                 'pred_lens="${PRED_LENS:-24 48 96 288}"',
                 'seq_len="${SEQ_LEN:-288}"',
@@ -208,6 +210,20 @@ class AemoExperimentScriptsTest(unittest.TestCase):
         self.assertTrue(runner_path.exists(), f"missing {runner_path}")
         content = runner_path.read_text()
         self.assertIn("VPPGDFNet_5min.sh", content)
+
+    def test_vpp_gdfnet_ablation_runner_is_serial_and_records_summary(self):
+        runner_path = SCRIPT_DIR / "run_vppgdfnet_ablation_5min.sh"
+        self.assertTrue(runner_path.exists(), f"missing {runner_path}")
+        content = runner_path.read_text()
+
+        for ablation in ["full", "no_exog", "unified_exog", "no_final_gate"]:
+            self.assertIn(ablation, content)
+        self.assertIn("pred_lens=(24 48 96 288)", content)
+        self.assertIn("VPP_ABLATION", content)
+        self.assertIn("summary.csv", content)
+        self.assertIn("status=\"failed\"", content)
+        self.assertNotIn("parallel", content)
+        self.assertNotIn("xargs -P", content)
 
 
 if __name__ == "__main__":
