@@ -139,7 +139,7 @@ bash scripts/long_term_forecast/AEMO/run_timexer.sh
 | `Autoformer` | 288 | 0.391551 / 0.498940 | 0.508135 / 0.564487 | 0.629772 / 0.619995 | 1.127724 / 0.832498 | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成 |
 | `TimesNet` | 288 | 0.054802 / 0.168520 | 0.137032 / 0.266420 |  |  | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | `pred_len=24/48` 已完成；`pred_len=96/288` 失败，`exit_code=143` |
 | `TimeXer` | 288 | 0.048770 / 0.153902 | 0.125251 / 0.245216 | 0.275121 / 0.370865 | 0.668956 / 0.603381 | `result_long_term_forecast.txt`；`results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成；`pred_len=24` 来自单独补跑，其余来自矩阵重跑 |
-| `VPP-GDFNet` | 288 | 0.052243 / 0.159371 | 0.133698 / 0.257003 | 0.293570 / 0.382305 | 0.690999 / 0.616395 | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成 |
+| `VPP-GDFNet` | 288 | 0.051891 / 0.159320 | 0.129307 / 0.251804 | 0.288619 / 0.381802 | 0.694724 / 0.614018 | `results/aemo_vic1/vppgdfnet_full_additive_5min_vpp_full_additive_20260504_145911/summary.csv` | 已完成；新版 `full_additive`，最终趋势/季节预测按 `DLinear` 式简单相加；旧门控融合结果不再采用 |
 
 ### 4.4 实验记录要求
 

@@ -226,6 +226,18 @@ class AemoExperimentScriptsTest(unittest.TestCase):
         self.assertNotIn("parallel", content)
         self.assertNotIn("xargs -P", content)
 
+    def test_vpp_gdfnet_variable_gate_runner_is_serial_and_single_variant(self):
+        runner_path = SCRIPT_DIR / "run_vppgdfnet_variable_gate_5min.sh"
+        self.assertTrue(runner_path.exists(), f"missing {runner_path}")
+        content = runner_path.read_text()
+
+        self.assertIn('VPP_ABLATION="variable_gate"', content)
+        self.assertIn("pred_lens=(24 48 96 288)", content)
+        self.assertIn("summary.csv", content)
+        self.assertIn("status=\"failed\"", content)
+        self.assertNotIn("parallel", content)
+        self.assertNotIn("xargs -P", content)
+
 
 if __name__ == "__main__":
     unittest.main()

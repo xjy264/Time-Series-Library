@@ -129,7 +129,18 @@ class VPPGDFNetTest(unittest.TestCase):
         self.assertNotIn("0.5 * trend_pred + 0.5 * seasonal_pred", content)
         self.assertNotIn("GVS", content)
         self.assertNotIn("sparse", content.lower())
-        self.assertNotIn("variable_gate", content)
+
+    def test_variable_gate_ablation_gates_exogenous_inputs_before_embedding(self):
+        content = Path("models/VPPGDFNet.py").read_text()
+
+        self.assertIn('"variable_gate"', content)
+        self.assertIn("self.variable_gate", content)
+        self.assertIn("x_exog = self.apply_variable_gate(x_exog)", content)
+        self.assertIn("exog_tokens = self.ex_embedding(x_exog, x_mark_enc)", content)
+        self.assertLess(
+            content.index("x_exog = self.apply_variable_gate(x_exog)"),
+            content.index("exog_tokens = self.ex_embedding(x_exog, x_mark_enc)"),
+        )
 
     def test_supported_ablation_modes_return_expected_shape(self):
         if torch is None:
@@ -137,7 +148,7 @@ class VPPGDFNetTest(unittest.TestCase):
 
         from models.VPPGDFNet import Model
 
-        for ablation in ["full", "no_exog", "unified_exog"]:
+        for ablation in ["full", "no_exog", "unified_exog", "variable_gate"]:
             with self.subTest(ablation=ablation):
                 configs = self._configs()
                 configs.vpp_ablation = ablation
@@ -169,7 +180,7 @@ class VPPGDFNetTest(unittest.TestCase):
 
         self.assertIn("vpp_ablation", model_content)
         self.assertIn("--vpp_ablation", run_content)
-        for ablation in ["full", "no_exog", "unified_exog"]:
+        for ablation in ["full", "no_exog", "unified_exog", "variable_gate"]:
             self.assertIn(ablation, model_content)
             self.assertIn(ablation, run_content)
         self.assertNotIn("no_final_gate", model_content)

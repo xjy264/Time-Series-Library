@@ -50,7 +50,7 @@ class CrossAttentionFusionLayer(nn.Module):
 
 
 class Model(nn.Module):
-    SUPPORTED_ABLATIONS = {"full", "no_exog", "unified_exog"}
+    SUPPORTED_ABLATIONS = {"full", "no_exog", "unified_exog", "variable_gate"}
 
     def __init__(self, configs):
         super().__init__()
@@ -83,6 +83,10 @@ class Model(nn.Module):
             configs.embed,
             configs.freq,
             configs.dropout,
+        )
+        self.variable_gate = nn.Sequential(
+            nn.Linear(configs.seq_len, 1),
+            nn.Sigmoid(),
         )
 
         self.trend_fusion_layers = nn.ModuleList([
@@ -138,6 +142,10 @@ class Model(nn.Module):
         seasonal_component, trend_component = self.decomposition(target_history)
         return trend_component, seasonal_component
 
+    def apply_variable_gate(self, x_exog):
+        gate = self.variable_gate(x_exog.transpose(1, 2)).transpose(1, 2)
+        return x_exog * gate
+
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         if self.use_norm:
             means = x_enc.mean(1, keepdim=True).detach()
@@ -159,7 +167,10 @@ class Model(nn.Module):
             dec_out = self.unified_projection(unified_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
         else:
             if self.vpp_ablation != "no_exog":
-                exog_tokens = self.ex_embedding(x_enc[:, :, :-1], x_mark_enc)
+                x_exog = x_enc[:, :, :-1]
+                if self.vpp_ablation == "variable_gate":
+                    x_exog = self.apply_variable_gate(x_exog)
+                exog_tokens = self.ex_embedding(x_exog, x_mark_enc)
                 for layer in self.trend_fusion_layers:
                     trend_query = layer(trend_query, exog_tokens)
                 for layer in self.seasonal_fusion_layers:
