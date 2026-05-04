@@ -9,7 +9,6 @@ ablations=(
   full
   no_exog
   unified_exog
-  no_final_gate
 )
 pred_lens=(24 48 96 288)
 

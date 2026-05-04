@@ -50,7 +50,7 @@ class CrossAttentionFusionLayer(nn.Module):
 
 
 class Model(nn.Module):
-    SUPPORTED_ABLATIONS = {"full", "no_exog", "unified_exog", "no_final_gate"}
+    SUPPORTED_ABLATIONS = {"full", "no_exog", "unified_exog"}
 
     def __init__(self, configs):
         super().__init__()
@@ -132,12 +132,6 @@ class Model(nn.Module):
         self.trend_projection = nn.Linear(configs.d_model, configs.pred_len * configs.c_out)
         self.seasonal_projection = nn.Linear(configs.d_model, configs.pred_len * configs.c_out)
         self.unified_projection = nn.Linear(configs.d_model, configs.pred_len * configs.c_out)
-        self.branch_gate = nn.Sequential(
-            nn.Linear(configs.d_model * 2, configs.d_model),
-            nn.GELU(),
-            nn.Linear(configs.d_model, configs.pred_len * configs.c_out),
-            nn.Sigmoid(),
-        )
 
     def decompose_target(self, x_enc):
         target_history = x_enc[:, :, -1:].contiguous()
@@ -173,13 +167,7 @@ class Model(nn.Module):
 
             trend_pred = self.trend_projection(trend_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
             seasonal_pred = self.seasonal_projection(seasonal_query.squeeze(1)).view(-1, self.pred_len, self.c_out)
-            if self.vpp_ablation == "no_final_gate":
-                dec_out = 0.5 * trend_pred + 0.5 * seasonal_pred
-            else:
-                beta = self.branch_gate(torch.cat([trend_query.squeeze(1), seasonal_query.squeeze(1)], dim=-1)).view(
-                    -1, self.pred_len, self.c_out
-                )
-                dec_out = beta * trend_pred + (1 - beta) * seasonal_pred
+            dec_out = trend_pred + seasonal_pred
 
         if self.use_norm:
             if self.c_out == x_enc.shape[-1]:

@@ -115,7 +115,7 @@ class VPPGDFNetTest(unittest.TestCase):
         self.assertTrue(torch.allclose(trend_a, trend_b))
         self.assertTrue(torch.allclose(seasonal_a, seasonal_b))
 
-    def test_model_source_uses_dual_cross_attention_and_final_branch_gate_only(self):
+    def test_model_source_uses_dual_cross_attention_and_dlinear_style_additive_fusion(self):
         content = Path("models/VPPGDFNet.py").read_text()
 
         self.assertIn("trend_query", content)
@@ -123,8 +123,10 @@ class VPPGDFNetTest(unittest.TestCase):
         self.assertIn("trend_fusion_layers", content)
         self.assertIn("seasonal_fusion_layers", content)
         self.assertIn("exog_tokens = self.ex_embedding(x_enc[:, :, :-1], x_mark_enc)", content)
-        self.assertIn("branch_gate", content)
-        self.assertIn("beta * trend_pred + (1 - beta) * seasonal_pred", content)
+        self.assertIn("dec_out = trend_pred + seasonal_pred", content)
+        self.assertNotIn("branch_gate", content)
+        self.assertNotIn("beta * trend_pred + (1 - beta) * seasonal_pred", content)
+        self.assertNotIn("0.5 * trend_pred + 0.5 * seasonal_pred", content)
         self.assertNotIn("GVS", content)
         self.assertNotIn("sparse", content.lower())
         self.assertNotIn("variable_gate", content)
@@ -135,7 +137,7 @@ class VPPGDFNetTest(unittest.TestCase):
 
         from models.VPPGDFNet import Model
 
-        for ablation in ["full", "no_exog", "unified_exog", "no_final_gate"]:
+        for ablation in ["full", "no_exog", "unified_exog"]:
             with self.subTest(ablation=ablation):
                 configs = self._configs()
                 configs.vpp_ablation = ablation
@@ -156,7 +158,7 @@ class VPPGDFNetTest(unittest.TestCase):
         from models.VPPGDFNet import Model
 
         configs = self._configs()
-        configs.vpp_ablation = "bad_mode"
+        configs.vpp_ablation = "no_final_gate"
 
         with self.assertRaisesRegex(ValueError, "Unsupported VPPGDFNet ablation mode"):
             Model(configs)
@@ -167,9 +169,11 @@ class VPPGDFNetTest(unittest.TestCase):
 
         self.assertIn("vpp_ablation", model_content)
         self.assertIn("--vpp_ablation", run_content)
-        for ablation in ["full", "no_exog", "unified_exog", "no_final_gate"]:
+        for ablation in ["full", "no_exog", "unified_exog"]:
             self.assertIn(ablation, model_content)
             self.assertIn(ablation, run_content)
+        self.assertNotIn("no_final_gate", model_content)
+        self.assertNotIn("'no_final_gate'", run_content)
 
 
 if __name__ == "__main__":

@@ -216,8 +216,9 @@ class AemoExperimentScriptsTest(unittest.TestCase):
         self.assertTrue(runner_path.exists(), f"missing {runner_path}")
         content = runner_path.read_text()
 
-        for ablation in ["full", "no_exog", "unified_exog", "no_final_gate"]:
+        for ablation in ["full", "no_exog", "unified_exog"]:
             self.assertIn(ablation, content)
+        self.assertNotIn("no_final_gate", content)
         self.assertIn("pred_lens=(24 48 96 288)", content)
         self.assertIn("VPP_ABLATION", content)
         self.assertIn("summary.csv", content)

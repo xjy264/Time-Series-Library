@@ -142,7 +142,7 @@ if __name__ == '__main__':
 
     # VPP-GDFNet ablation
     parser.add_argument('--vpp_ablation', type=str, default='full',
-                        choices=['full', 'no_exog', 'unified_exog', 'no_final_gate'],
+                        choices=['full', 'no_exog', 'unified_exog'],
                         help='VPPGDFNet ablation mode')
 
     # GCN
