@@ -60,7 +60,7 @@ class Model(nn.Module):
         self.pred_len = configs.pred_len
         self.c_out = configs.c_out
         self.use_norm = getattr(configs, "use_norm", 0)
-        self.vpp_ablation = getattr(configs, "vpp_ablation", "full")
+        self.vpp_ablation = getattr(configs, "vpp_ablation", "variable_gate")
         if self.vpp_ablation not in self.SUPPORTED_ABLATIONS:
             raise ValueError(f"Unsupported VPPGDFNet ablation mode: {self.vpp_ablation}")
         self.decomposition = series_decomp(configs.moving_avg)

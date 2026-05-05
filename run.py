@@ -141,7 +141,7 @@ if __name__ == '__main__':
     parser.add_argument('--patch_len', type=int, default=16, help='patch length')
 
     # VPP-GDFNet ablation
-    parser.add_argument('--vpp_ablation', type=str, default='full',
+    parser.add_argument('--vpp_ablation', type=str, default='variable_gate',
                         choices=['full', 'no_exog', 'unified_exog', 'variable_gate'],
                         help='VPPGDFNet ablation mode')
 

@@ -108,7 +108,7 @@ class AemoExperimentScriptsTest(unittest.TestCase):
             ],
             "VPPGDFNet_5min.sh": [
                 'model_name=VPPGDFNet',
-                'ablation="${VPP_ABLATION:-full}"',
+                'ablation="${VPP_ABLATION:-variable_gate}"',
                 'data_path="${DATA_PATH:-aemo_vic1_dispatchis_vic1_full_5min.csv}"',
                 'pred_lens="${PRED_LENS:-24 48 96 288}"',
                 'seq_len="${SEQ_LEN:-288}"',

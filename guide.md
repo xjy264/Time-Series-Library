@@ -9,7 +9,7 @@
 - 使用 AEMO VIC1 官方直采 `DISPATCHREGIONSUM` 5 分钟数据作为主数据。
 - 使用 NOAA Melbourne Olympic Park 小时级天气数据作为外生天气数据。
 - 构造并预测系统净负荷 `net_load`。
-- 当前主线优先围绕 `VPP-GDFNet` 做趋势—季节/周期分解与双分支外生 cross-attention 改造，最后仿照 `DLinear` 将趋势预测分支和季节/周期预测分支简单相加，同时保留 `DLinear`、`PatchTST`、`TimeXer` 等强基线对照。
+- 当前主线优先围绕 `VPP-GDFNet` 做趋势—季节/周期分解、外生变量预门控与双分支外生 cross-attention 改造，最后仿照 `DLinear` 将趋势预测分支和季节/周期预测分支简单相加，同时保留 `DLinear`、`PatchTST`、`TimeXer` 等强基线对照。
 
 固定目标定义：
 
@@ -139,7 +139,7 @@ bash scripts/long_term_forecast/AEMO/run_timexer.sh
 | `Autoformer` | 288 | 0.391551 / 0.498940 | 0.508135 / 0.564487 | 0.629772 / 0.619995 | 1.127724 / 0.832498 | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成 |
 | `TimesNet` | 288 | 0.054802 / 0.168520 | 0.137032 / 0.266420 |  |  | `results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | `pred_len=24/48` 已完成；`pred_len=96/288` 失败，`exit_code=143` |
 | `TimeXer` | 288 | 0.048770 / 0.153902 | 0.125251 / 0.245216 | 0.275121 / 0.370865 | 0.668956 / 0.603381 | `result_long_term_forecast.txt`；`results/aemo_vic1/rerun_5min_matrix_aemo26_20260428_023850/summary.csv` | 已完成；`pred_len=24` 来自单独补跑，其余来自矩阵重跑 |
-| `VPP-GDFNet` | 288 | 0.051891 / 0.159320 | 0.129307 / 0.251804 | 0.288619 / 0.381802 | 0.694724 / 0.614018 | `results/aemo_vic1/vppgdfnet_full_additive_5min_vpp_full_additive_20260504_145911/summary.csv` | 已完成；新版 `full_additive`，最终趋势/季节预测按 `DLinear` 式简单相加；旧门控融合结果不再采用 |
+| `VPP-GDFNet` | 288 | 0.049671 / 0.154892 | 0.119492 / 0.240425 | 0.284545 / 0.380676 | 0.686708 / 0.611811 | `results/aemo_vic1/vppgdfnet_variable_gate_5min_vpp_variable_gate_20260504_183110/summary.csv`；`results/aemo_vic1/vppgdfnet_variable_gate_resume288_vpp_variable_gate_resume288_20260505_085547/summary.csv` | 已完成；当前主方法为外生变量预门控 `variable_gate`；`pred_len=288` 结果来自最佳 checkpoint 的 `test-only` 评估 |
 
 ### 4.4 实验记录要求
 
@@ -218,7 +218,9 @@ DLinear 趋势—季节/周期分解
    ↓                    ↓
 分别作为 Query       分别作为 Query
    ↓                    ↓
-与外生变量 token 交叉注意力交互
+外生变量  → 变量门控 → 外生变量 token
+   ↓                    ↓
+与同一组外生变量 token 交叉注意力交互
    ↓                    ↓
 趋势预测分支        季节/周期预测分支
    ↓                    ↓
@@ -227,9 +229,9 @@ DLinear 趋势—季节/周期分解
         最终净负荷预测
 ```
 
-核心表述固定为：`VPP-GDFNet` 不是先把趋势项和季节项融合后再统一利用外生变量，而是让趋势分支和季节/周期分支分别与外生条件变量交互，使模型自适应学习外生变量对不同动态成分的差异化影响，最后仿照 `DLinear` 将两个分支的预测结果直接相加得到最终预测。
+核心表述固定为：`VPP-GDFNet` 先在外生变量 token 化之前加入变量门控，使模型先对输入外生变量做自适应筛选；随后让趋势分支和季节/周期分支分别与同一组外生变量 token 交互，使模型学习外生变量对不同动态成分的差异化影响，最后仿照 `DLinear` 将两个分支的预测结果直接相加得到最终预测。
 
-研究假设：不同外生变量对净负荷低频变化和高频/周期波动的作用强度可能不同。因此，先将趋势分量和季节/周期分量合并后再统一利用外生变量，可能削弱这种差异化作用；让两个分支分别与同一组外生变量 token 做普通 cross-attention，可以让模型分别学习外生变量对不同动态成分的影响。
+研究假设：不同外生变量的重要性本身存在差异，同时它们对净负荷低频变化和高频/周期波动的作用强度也可能不同。因此，先在外生变量进入 token 表示前引入变量门控，有助于削弱噪声变量干扰；再让趋势分支和季节/周期分支分别与同一组外生变量 token 做普通 cross-attention，可以进一步学习外生变量对不同动态成分的差异化影响。
 
 优先顺序：
 
@@ -243,19 +245,19 @@ DLinear 趋势—季节/周期分解
 当前推荐创新主线：
 
 ```text
-趋势—季节/周期分解 + 双分支外生 cross-attention + DLinear 式简单相加
+趋势—季节/周期分解 + 外生变量预门控 + 双分支外生 cross-attention + DLinear 式简单相加
 ```
 
-核心判断：当前任务不是盲目增加变量或模型复杂度，而是在强周期净负荷轨迹基础上，判断外生变量对低频趋势和高频/周期波动是否具有不同作用。外生变量交互阶段不做门控筛选或门控 cross-attention；最终融合阶段也不再引入门控，而是采用与 `DLinear` 一致的趋势预测与季节/周期预测简单相加。
+核心判断：当前任务不是盲目增加变量或模型复杂度，而是在强周期净负荷轨迹基础上，先利用变量门控抑制无效外生变量，再判断外生变量对低频趋势和高频/周期波动是否具有不同作用。外生变量交互阶段不使用 gated cross-attention；最终融合阶段也不再引入门控，而是采用与 `DLinear` 一致的趋势预测与季节/周期预测简单相加。
 
 必须保留的关键消融包括：
 
 - `DLinear-only`：验证趋势—季节/周期分解目标轨迹基线。
 - `DLinear + unified exogenous fusion`：验证统一外生变量融合的收益。
 - `DLinear + branch exogenous fusion`：验证趋势/季节分支分别融合是否优于统一融合。
-- `VPP-GDFNet full`：完整方法。
+- `VPP-GDFNet variable_gate`：当前主方法，在外生变量 token 化前加入变量门控。
 
-解释分析应重点比较趋势预测分支与季节/周期预测分支在外生变量交互后的误差变化，尤其关注双分支外生交互是否优于统一外生交互。当前主方法不包含变量选择模块，不在与外生变量交互时对外生变量 token 做门控处理，也不在最终预测阶段引入分支门控。
+解释分析应重点比较趋势预测分支与季节/周期预测分支在外生变量交互后的误差变化，尤其关注双分支外生交互是否优于统一外生交互。当前主方法在外生变量 token 化前加入变量门控，但不在 cross-attention 内部使用 gated cross-attention，也不在最终预测阶段引入分支门控。
 
 ## 6. 保留标准
 
